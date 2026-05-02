@@ -1,6 +1,7 @@
-# 零职达 (ZeroJob) - 上下文文档
+# ZeroResume - 上下文文档
 
 > AI驱动的简历投递助手，专注国内主流招聘平台。
+> 基于多个优秀开源项目二次开发。
 
 ## 产品定位
 
@@ -8,6 +9,18 @@
 - **核心价值**：基于求职者信息 + 岗位JD，AI生成匹配简历，提升投递效率
 - **收费模式**：完全开源免费
 - **技术形态**：桌面端 (Tauri) + 浏览器插件 (Manifest V3)
+
+## 二创来源
+
+本项目基于以下开源项目二次开发：
+
+| 项目 | 用途 | 协议 |
+|------|------|------|
+| [Auto-JobHunter](https://github.com/jolie-z/Auto-JobHunter) | 爬虫架构、AI评分逻辑、数据模型参考 | 未标注 |
+| [LinkedIn-AI-Job-Applier-Ultimate](https://github.com/beatwad/LinkedIn-AI-Job-Applier-Ultimate) | 数据脱敏方案、LLM集成方式 | 未标注 |
+| [QuickApply](https://github.com/AbbasZaidi11/QuickApply) | 浏览器扩展架构、表单字段检测 | 未标注 |
+| [Reactive-Resume](https://github.com/amruthpillai/reactive-resume) | 简历编辑器UI参考、模板系统设计 | MIT |
+| [ResumeLM](https://github.com/olyaiy/resume-lm) | 简历版本管理、评分算法参考 | AGPL-3.0 |
 
 ## 术语表
 
@@ -42,7 +55,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        零职达 (ZeroJob)                       │
+│                        ZeroResume                             │
 ├─────────────────────────────┬───────────────────────────────┤
 │       桌面端 (Tauri)         │      浏览器插件 (Manifest V3)  │
 │  ┌───────────────────────┐  │  ┌─────────────────────────┐  │
@@ -86,45 +99,128 @@
                     └───────────────────┘
 ```
 
+### 二创架构映射
+
+| 模块 | 二创来源 | 改造方式 |
+|------|----------|----------|
+| 爬虫引擎 | Auto-JobHunter | Python→Rust迁移，适配Tauri命令 |
+| AI评分/简历生成 | Auto-JobHunter ai_agents | 保留Prompt逻辑，改为本地LLM+第三方API混合 |
+| 数据脱敏 | LinkedIn-AI-Job-Applier | 移植脱敏算法到Rust |
+| 浏览器扩展 | QuickApply | MV3架构，增加国内平台JD识别 |
+| 表单字段检测 | QuickApply fieldMap.js | 扩展支持中文招聘平台字段 |
+| 简历编辑器 | Reactive-Resume + ResumeLM | 参考UI设计，自研实现 |
+| 模板系统 | ResumeLM | 参考版本管理设计 |
+
 ## 数据模型
 
-### 求职者信息 (JobSeeker)
-- 基本信息：姓名、电话、邮箱、求职意向
-- 教育经历：学校、专业、学历、时间
-- 工作/实习经历：公司、职位、时间、职责描述
-- 项目经历：项目名称、技术栈、职责、成果
-- 校园经历：社团、竞赛、志愿活动
-- 自我评价：个人优势、职业目标等
-- 自定义字段：政治面貌、民族、籍贯等（用户自定义）
-- 证件照：本地文件路径
+### 数据库表结构
 
-### 基础简历 (BaseResume)
-- 简历名称（用户自定义，如"互联网版"、"国企版"）
-- 关联的求职者信息
-- 创建时间、更新时间
+#### job_seekers（求职者信息表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| name | TEXT | 姓名 |
+| phone | TEXT | 电话 |
+| email | TEXT | 邮箱 |
+| job_intention | TEXT | 求职意向（JSON数组） |
+| self_evaluation | TEXT | 自我评价 |
+| custom_fields | TEXT | 自定义字段（JSON） |
+| photo_path | TEXT | 证件照本地路径 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
 
-### 匹配简历 (TargetedResume)
-- 关联的基础简历
-- 关联的目标岗位
-- AI优化后的内容
-- 版本号
-- 生成时间
-- 文件路径（PDF/DOCX）
+#### educations（教育经历表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| job_seeker_id | INTEGER FK | 关联求职者 |
+| school | TEXT | 学校 |
+| major | TEXT | 专业 |
+| degree | TEXT | 学历 |
+| start_date | DATE | 开始时间 |
+| end_date | DATE | 结束时间 |
 
-### 岗位 (Job)
-- 平台来源（BOSS直聘/智联/猎聘/前程无忧/拉勾网）
-- 岗位标题、公司名称
-- JD内容
-- 薪资范围、工作地点
-- 技能要求、经验要求、学历要求
-- 匹配度评分（各维度分项得分）
-- 爬取时间、过期标记
+#### work_experiences（工作/实习经历表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| job_seeker_id | INTEGER FK | 关联求职者 |
+| company | TEXT | 公司名 |
+| position | TEXT | 职位 |
+| start_date | DATE | 开始时间 |
+| end_date | DATE | 结束时间 |
+| description | TEXT | 职责描述 |
 
-### 投递记录 (DeliveryRecord)
-- 关联的匹配简历
-- 目标公司、岗位
-- 投递时间
-- 投递状态（已投递/已查看/已拒绝/已录用）
+#### project_experiences（项目经历表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| job_seeker_id | INTEGER FK | 关联求职者 |
+| project_name | TEXT | 项目名称 |
+| tech_stack | TEXT | 技术栈 |
+| role | TEXT | 职责 |
+| achievements | TEXT | 成果 |
+
+#### base_resumes（基础简历表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| name | TEXT | 简历名称（如"互联网版"） |
+| job_seeker_id | INTEGER FK | 关联求职者 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+
+#### targeted_resumes（匹配简历表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| base_resume_id | INTEGER FK | 关联基础简历 |
+| job_id | INTEGER FK | 关联目标岗位 |
+| optimized_content | TEXT | AI优化后的内容（Markdown） |
+| version | INTEGER | 版本号 |
+| file_path_pdf | TEXT | PDF文件路径 |
+| file_path_docx | TEXT | DOCX文件路径 |
+| generated_at | DATETIME | 生成时间 |
+
+#### jobs（岗位表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| platform | TEXT | 平台来源 |
+| job_title | TEXT | 岗位标题 |
+| company_name | TEXT | 公司名称 |
+| jd_text | TEXT | JD内容 |
+| salary_range | TEXT | 薪资范围 |
+| location | TEXT | 工作地点 |
+| skills_required | TEXT | 技能要求 |
+| experience_req | TEXT | 经验要求 |
+| education_req | TEXT | 学历要求 |
+| match_score | REAL | 匹配度总分 |
+| score_details | TEXT | 各维度得分（JSON） |
+| crawl_time | DATETIME | 爬取时间 |
+| is_expired | BOOLEAN | 是否过期 |
+
+#### delivery_records（投递记录表）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| targeted_resume_id | INTEGER FK | 关联匹配简历 |
+| company_name | TEXT | 目标公司 |
+| job_title | TEXT | 目标岗位 |
+| delivered_at | DATETIME | 投递时间 |
+| status | TEXT | 投递状态 |
+
+### 领域模型关系
+
+```
+JobSeeker (1) ──► (N) Education
+            ──► (N) WorkExperience
+            ──► (N) ProjectExperience
+            ──► (N) BaseResume ──► (N) TargetedResume ──► (N) DeliveryRecord
+                                       │
+                                       ▼
+                                    Job (1)
+```
 
 ## 关键决策
 
@@ -140,6 +236,58 @@
 
 ## 开源策略
 
-- **公共仓库** (`zerojob`)：核心代码，AGPL-3.0协议
-- **私有仓库** (`zerojob-pro`)：AI提示词模板、高级简历模板、品牌资源
+- **公共仓库** (`zeroresume`)：核心代码，AGPL-3.0协议
+- **私有仓库** (`zeroresume-pro`)：AI提示词模板、高级简历模板、品牌资源
 - **发布包**：包含开源核心 + 闭源增值内容，用户免费使用
+
+## 项目结构
+
+```
+zeroresume/
+├── src/                          # Tauri 桌面端源码 (Rust)
+│   ├── main.rs                   # 主入口
+│   ├── commands/                 # Tauri Commands
+│   │   ├── crawler.rs            # 爬虫命令
+│   │   ├── resume.rs             # 简历生成命令
+│   │   ├── database.rs           # 数据库操作
+│   │   └── ai.rs                 # AI模型调用
+│   ├── services/                 # 核心服务
+│   │   ├── crawler/              # 爬虫服务
+│   │   │   ├── boss.rs           # BOSS直聘 (基于Auto-JobHunter改造)
+│   │   │   ├── zhaopin.rs        # 智联招聘
+│   │   │   ├── liepin.rs         # 猎聘
+│   │   │   └── _51job.rs         # 前程无忧
+│   │   ├── ai/                   # AI服务
+│   │   │   ├── scorer.rs         # 岗位评分 (移植ai_scorer.py)
+│   │   │   ├── resume_generator.rs # 简历生成 (移植apply_assistant.py)
+│   │   │   └── data_masking.rs   # 数据脱敏 (移植LinkedIn-Applier)
+│   │   └── database.rs           # SQLite服务
+│   └── utils/
+│
+├── src-ui/                       # Web前端 (React + TypeScript)
+│   ├── components/
+│   │   ├── resume-editor/        # 简历编辑器
+│   │   ├── job-list/             # 岗位列表
+│   │   ├── job-detail/           # 岗位详情+评分
+│   │   └── settings/             # 设置面板
+│   └── stores/
+│
+├── extension/                    # 浏览器扩展 (Manifest V3)
+│   ├── manifest.json
+│   ├── content/
+│   │   ├── jd-extractor.js       # JD提取 (基于QuickApply改造)
+│   │   ├── field-map.js          # 字段映射 (移植fieldMap.js)
+│   │   └── platform-adapters/    # 平台适配器
+│   │       ├── boss.js
+│   │       ├── zhaopin.js
+│   │       └── liepin.js
+│   └── popup/
+│
+├── docs/
+│   ├── CONTEXT.md
+│   ├── PRD.md
+│   └── adr/
+│
+└── scripts/
+    └── setup-local-llm.sh        # 本地模型安装脚本
+```

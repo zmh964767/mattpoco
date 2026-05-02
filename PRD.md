@@ -1,4 +1,6 @@
-# PRD: 零职达 (ZeroJob) - AI驱动的简历投递助手
+# PRD: ZeroResume - AI驱动的简历投递助手
+
+> 基于 Auto-JobHunter、LinkedIn-AI-Job-Applier-Ultimate、QuickApply 等优秀开源项目二次开发
 
 ## Problem Statement
 
@@ -11,7 +13,7 @@
 
 ## Solution
 
-零职达是一款**完全开源免费**的AI简历投递助手，采用**桌面端 + 浏览器插件**混合架构：
+ZeroResume 是一款**完全开源免费**的AI简历投递助手，采用**桌面端 + 浏览器插件**混合架构：
 
 - **本地优先**：所有用户数据存储在本地SQLite数据库，无需登录，无需上传服务器
 - **AI简历生成**：根据岗位JD智能优化简历内容，生成针对性强的PDF/DOCX简历
@@ -133,17 +135,32 @@
 ### 技术栈
 
 - **桌面端**：Tauri（Rust后端 + Web前端）
-  - 前端框架：React + TypeScript（推荐）或 Vue + TypeScript
+  - 前端框架：React + TypeScript
   - UI组件库：Tailwind CSS + Headless UI
-  - Rust ORM：SeaORM（推荐）或 Diesel
+  - Rust ORM：SeaORM
 - **浏览器插件**：Manifest V3
   - 内容脚本：TypeScript
   - 后台服务：TypeScript
 - **数据库**：SQLite（本地存储）
 - **爬虫**：Playwright（无头浏览器）
+  - 参考 Auto-JobHunter 的 DrissionPage 实现，迁移至 Rust
 - **AI本地运行**：Ollama / LM Studio / llama.cpp
 - **文档生成**：Rust PDF库（如genpdf）+ DOCX库
 - **通信**：桌面端localhost HTTP服务
+  - 参考 QuickApply 的扩展通信方案
+
+### 二创技术方案
+
+| 模块 | 基础项目 | 移植/改造内容 |
+|------|----------|---------------|
+| **BOSS直聘爬虫** | Auto-JobHunter `boss_collector.py` | Python→Rust，保留Cookie管理和反风控逻辑 |
+| **AI评分引擎** | Auto-JobHunter `ai_scorer.py` | 保留Prompt模板和评分逻辑，改为Rust实现 |
+| **简历生成器** | Auto-JobHunter `apply_assistant.py` | 保留Markdown简历格式，改为本地LLM调用 |
+| **数据脱敏** | LinkedIn-AI-Job-Applier | 移植脱敏算法到Rust，AES-256加密映射表 |
+| **浏览器扩展** | QuickApply | 保留MV3架构和字段映射，增加国内平台适配 |
+| **表单检测** | QuickApply `fieldMap.js` | 扩展中文关键词，支持BOSS/智联/猎聘 |
+| **简历编辑器UI** | Reactive-Resume + ResumeLM | 参考设计，自研React组件 |
+| **模板系统** | ResumeLM | 参考版本管理设计，支持基础/定向简历 |
 
 ### 数据流
 
@@ -184,10 +201,22 @@ JobCrawler爬取岗位 ──► SQLite ──► MatchingEngine计算评分
 
 ### 开源策略
 
-- **公共仓库**（`zerojob`）：AGPL-3.0协议，核心代码完全开源
-- **私有仓库**（`zerojob-pro`）：AI提示词模板、高级简历模板、品牌资源
+- **公共仓库**（`zeroresume`）：AGPL-3.0协议，核心代码完全开源
+- **私有仓库**（`zeroresume-pro`）：AI提示词模板、高级简历模板、品牌资源
 - **发布包**：开源核心 + 闭源增值内容，用户免费使用
 - **闭源内容加载**：编译时通过git submodule或脚本将私有仓库内容嵌入发布包
+
+### 二创合规说明
+
+本项目基于以下开源项目二次开发，遵守各自协议：
+
+1. **Auto-JobHunter**：参考爬虫架构和AI逻辑（未标注协议，已联系作者确认）
+2. **LinkedIn-AI-Job-Applier-Ultimate**：参考数据脱敏方案（未标注协议）
+3. **QuickApply**：参考浏览器扩展架构（未标注协议）
+4. **Reactive-Resume**：参考UI设计（MIT协议，已兼容）
+5. **ResumeLM**：参考简历管理设计（AGPL-3.0协议，已兼容）
+
+所有引用代码均已标注来源，修改部分遵循AGPL-3.0协议开源。
 
 ## Testing Decisions
 
